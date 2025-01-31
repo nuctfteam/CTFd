@@ -10,7 +10,7 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from CTFd.cache import clear_user_recent_ips
 from CTFd.exceptions import UserNotFoundException, UserTokenExpiredException
 from CTFd.models import Tracking, db
-from CTFd.utils import config, get_config, import_in_progress, markdown
+from CTFd.utils import config, get_app_config, get_config, import_in_progress, markdown
 from CTFd.utils.config import (
     can_send_mail,
     ctf_logo,
@@ -26,6 +26,7 @@ from CTFd.utils.humanize.words import pluralize
 from CTFd.utils.modes import generate_account_url, get_mode_as_word
 from CTFd.utils.plugins import (
     get_configurable_plugins,
+    get_menubar_plugins,
     get_registered_admin_scripts,
     get_registered_admin_stylesheets,
     get_registered_scripts,
@@ -39,6 +40,7 @@ from CTFd.utils.user import (
     get_current_user_attrs,
     get_current_user_recent_ips,
     get_ip,
+    get_locale,
     is_admin,
 )
 
@@ -62,6 +64,7 @@ def init_template_globals(app):
     from CTFd.constants import JINJA_ENUMS  # noqa: I001
     from CTFd.constants.assets import Assets
     from CTFd.constants.config import Configs
+    from CTFd.constants.languages import Languages
     from CTFd.constants.plugins import Plugins
     from CTFd.constants.sessions import Session
     from CTFd.constants.static import Static
@@ -83,6 +86,7 @@ def init_template_globals(app):
     app.jinja_env.globals.update(get_ctf_name=ctf_name)
     app.jinja_env.globals.update(get_ctf_logo=ctf_logo)
     app.jinja_env.globals.update(get_ctf_theme=ctf_theme)
+    app.jinja_env.globals.update(get_menubar_plugins=get_menubar_plugins)
     app.jinja_env.globals.update(get_configurable_plugins=get_configurable_plugins)
     app.jinja_env.globals.update(get_registered_scripts=get_registered_scripts)
     app.jinja_env.globals.update(get_registered_stylesheets=get_registered_stylesheets)
@@ -109,6 +113,7 @@ def init_template_globals(app):
     app.jinja_env.globals.update(get_current_user_attrs=get_current_user_attrs)
     app.jinja_env.globals.update(get_current_team_attrs=get_current_team_attrs)
     app.jinja_env.globals.update(get_ip=get_ip)
+    app.jinja_env.globals.update(get_locale=get_locale)
     app.jinja_env.globals.update(Assets=Assets)
     app.jinja_env.globals.update(Configs=Configs)
     app.jinja_env.globals.update(Plugins=Plugins)
@@ -117,6 +122,7 @@ def init_template_globals(app):
     app.jinja_env.globals.update(Forms=Forms)
     app.jinja_env.globals.update(User=User)
     app.jinja_env.globals.update(Team=Team)
+    app.jinja_env.globals.update(Languages=Languages)
 
     # Add in JinjaEnums
     # The reason this exists is that on double import, JinjaEnums are not reinitialized
@@ -233,7 +239,11 @@ def init_request_processors(app):
             ip = get_ip()
 
             track = None
-            if (ip not in user_ips) or (request.method != "GET"):
+            if ip not in user_ips or request.method in (
+                "POST",
+                "PATCH",
+                "DELETE",
+            ):
                 track = Tracking.query.filter_by(
                     ip=get_ip(), user_id=session["id"]
                 ).first()
@@ -323,6 +333,13 @@ def init_request_processors(app):
             if request.content_type != "application/json":
                 if session["nonce"] != request.form.get("nonce"):
                     abort(403)
+
+    @app.after_request
+    def response_headers(response):
+        response.headers["Cross-Origin-Opener-Policy"] = get_app_config(
+            "CROSS_ORIGIN_OPENER_POLICY", default="same-origin-allow-popups"
+        )
+        return response
 
     application_root = app.config.get("APPLICATION_ROOT")
     if application_root != "/":

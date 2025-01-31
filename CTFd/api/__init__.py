@@ -6,6 +6,7 @@ from CTFd.api.v1.brackets import brackets_namespace
 from CTFd.api.v1.challenges import challenges_namespace
 from CTFd.api.v1.comments import comments_namespace
 from CTFd.api.v1.config import configs_namespace
+from CTFd.api.v1.exports import exports_namespace
 from CTFd.api.v1.files import files_namespace
 from CTFd.api.v1.flags import flags_namespace
 from CTFd.api.v1.hints import hints_namespace
@@ -39,14 +40,8 @@ CTFd_API_v1 = Api(
             "name": "Authorization",
             "description": "Generate access token in the settings page of your user account.",
         },
-        "ContentType": {
-            "type": "apiKey",
-            "in": "header",
-            "name": "Content-Type",
-            "description": "Must be set to `application/json`",
-        },
     },
-    security=["AccessToken", "ContentType"],
+    security=["AccessToken"],
 )
 
 CTFd_API_v1.schema_model("APISimpleErrorResponse", APISimpleErrorResponse.schema())
@@ -75,3 +70,4 @@ CTFd_API_v1.add_namespace(tokens_namespace, "/tokens")
 CTFd_API_v1.add_namespace(comments_namespace, "/comments")
 CTFd_API_v1.add_namespace(shares_namespace, "/shares")
 CTFd_API_v1.add_namespace(brackets_namespace, "/brackets")
+CTFd_API_v1.add_namespace(exports_namespace, "/exports")
